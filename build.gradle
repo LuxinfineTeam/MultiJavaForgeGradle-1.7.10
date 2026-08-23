@@ -1,0 +1,36 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url = 'https://maven.minecraftforge.net' }
+        maven { url = 'https://jitpack.io' }
+    }
+}
+
+plugins {
+    id 'groovy'
+    id 'java-gradle-plugin'
+}
+
+group = 'ml.luxinfine.gradle'
+version = '1.0'
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.minecraftforge.net' }
+    maven { url = 'https://jitpack.io' }
+}
+
+dependencies {
+    implementation('com.github.LuxinfineTeam.ForgeGradle-1_2:ForgeGradle:main-SNAPSHOT') {
+        changing = true
+    }
+}
+
+gradlePlugin {
+    plugins {
+        multiJavaForge {
+            id = 'ml.luxinfine.gradle.MultiJavaForgePlugin'
+            implementationClass = 'ml.luxinfine.gradle.MultiJavaForgePlugin'
+        }
+    }
+}
