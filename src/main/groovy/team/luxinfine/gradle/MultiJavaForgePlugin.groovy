@@ -1,4 +1,4 @@
-package ml.luxinfine.gradle
+package team.luxinfine.gradle
 
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -120,27 +120,10 @@ class MultiJavaForgePlugin implements Plugin<Project> {
     }
 
     private static void configurePublicSplitterPlugin(Project project) {
-        project.logger.lifecycle('')
-        project.logger.lifecycle('To use public JarSplitter plugin, add to your build.gradle:')
-        project.logger.lifecycle('')
-        project.logger.lifecycle('buildscript {')
-        project.logger.lifecycle('    repositories {')
-        project.logger.lifecycle('        maven { url = "https://jitpack.io" }')
-        project.logger.lifecycle('    }')
-        project.logger.lifecycle('    dependencies {')
-        project.logger.lifecycle('        classpath "com.github.LuxinfineTeam:JarSplitterGradle:plugin-SNAPSHOT"')
-        project.logger.lifecycle('    }')
-        project.logger.lifecycle('}')
-        project.logger.lifecycle('')
-        project.logger.lifecycle('apply plugin: "team.luxinfine.jarsplitter"')
-        project.logger.lifecycle('')
-
-        // Try to apply the plugin if it's already in classpath
         try {
             project.pluginManager.apply('team.luxinfine.jarsplitter')
             project.logger.lifecycle('Public JarSplitter plugin applied successfully')
         } catch (Exception e) {
-            project.logger.warn('Could not apply public JarSplitter plugin. Please add it manually to your build.gradle')
             project.logger.warn("Error: ${e.message}")
         }
     }
@@ -180,18 +163,11 @@ class MultiJavaForgePlugin implements Plugin<Project> {
                         def propertiesList = new ArrayList<String>()
                         def properties = new Properties()
 
-                        project.file('gradle.properties').withInputStream {
-                            properties.load(it)
-                        }
-                        properties.propertyNames().each {
-                            propertiesList.add(it.toString() + '=' + properties.getProperty(it.toString()))
-                        }
-
+                        project.file('gradle.properties').withInputStream {properties.load(it)}
+                        properties.propertyNames().each { propertiesList.add(it.toString() + '=' + properties.getProperty(it.toString())) }
                         propertiesList.add('BuildPath=' + builtJar.absolutePath)
                         propertiesList.add('SourcesDir=' + project.sourceSets.main.java.srcDirs[0])
-                        propertiesList.add('DependenciesPaths=' + depends.stream().filter {
-                                                    it.toString().endsWith('.jar')
-                                                }.collect(Collectors.joining(';')))
+                        propertiesList.add('DependenciesPaths=' + depends.stream().filter {it.toString().endsWith('.jar')}.collect(Collectors.joining(';')))
                         propertiesList.add('MCMappingsPath=' + mappingsFile)
 
                         Files.write(depsFile, propertiesList)
