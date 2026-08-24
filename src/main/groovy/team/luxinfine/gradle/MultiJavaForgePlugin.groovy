@@ -166,6 +166,12 @@ class MultiJavaForgePlugin implements Plugin<Project> {
 
                         project.file('gradle.properties').withInputStream {properties.load(it)}
                         properties.propertyNames().each { propertiesList.add(it.toString() + '=' + properties.getProperty(it.toString())) }
+
+                        // Добавляем профиль если он установлен
+                        if (project.ext.has('Profile') && project.ext.Profile) {
+                            propertiesList.add('Modules.ModuleBuildSystem.Profile=' + project.ext.Profile)
+                        }
+
                         propertiesList.add('BuildPath=' + builtJar.absolutePath)
                         propertiesList.add('SourcesDir=' + project.sourceSets.main.java.srcDirs[0])
                         propertiesList.add('DependenciesPaths=' + depends.stream().filter {it.toString().endsWith('.jar')}.collect(Collectors.joining(';')))
@@ -175,53 +181,15 @@ class MultiJavaForgePlugin implements Plugin<Project> {
 
                         args = [depsFile.toString()]
 
+                        def profileInfo = (project.ext.has('Profile') && project.ext.Profile) ? " with profile ${project.ext.Profile}" : ''
+
                         project.logger.lifecycle('')
                         project.logger.lifecycle('========================================')
-                        project.logger.lifecycle('Running JarSplitter')
+                        project.logger.lifecycle("Running JarSplitter${profileInfo}")
                         project.logger.lifecycle("Input: ${builtJar}")
                         project.logger.lifecycle('========================================')
                     }
                 }
-        }
-
-        project.ext.multiJavaForgeRunSplitterWithProfile = { def jarTask, String profilePath ->
-            def builtJar = jarTask.archiveFile.get().asFile
-            def depsFile = Files.createTempFile('JarSplitter', '.tmp')
-            def depends = new HashSet<String>()
-
-            try {
-                project.configurations.jarSplitterDependencies.resolve().each { depends.add(it.toString()) }
-            } catch (Throwable t) {
-                t.printStackTrace()
-            }
-
-            def propertiesList = new ArrayList<String>()
-            def properties = new Properties()
-
-            project.file('gradle.properties').withInputStream { properties.load(it) }
-            properties.propertyNames().each {
-                propertiesList.add("${it}=${properties.getProperty(it.toString())}")
-            }
-
-            propertiesList.add("Modules.ModuleBuildSystem.Profile=${profilePath}")
-            propertiesList.add("BuildPath=${builtJar.absolutePath}")
-            propertiesList.add("SourcesDir=${project.sourceSets.main.java.srcDirs[0]}")
-            propertiesList.add("DependenciesPaths=${depends.stream().filter { it.toString().endsWith('.jar') }.collect(Collectors.joining(';'))}")
-            propertiesList.add("MCMappingsPath=${mappingsFile}")
-
-            Files.write(depsFile, propertiesList)
-
-            project.logger.lifecycle('')
-            project.logger.lifecycle('========================================')
-            project.logger.lifecycle('Running JarSplitter with Profile')
-            project.logger.lifecycle("Input: ${builtJar}")
-            project.logger.lifecycle("Profile: ${profilePath}")
-            project.logger.lifecycle('========================================')
-
-            project.javaexec {
-                classpath = project.files(splitterJar)
-                args = [depsFile.toString()]
-            }
         }
     }
 
@@ -327,27 +295,25 @@ class MultiJavaForgePlugin implements Plugin<Project> {
             return
         }
 
-        def java8Jar = project.tasks.getByName('jar')
-
         profileFiles.each { profileFile ->
             def profileName = profileFile.name.replace('.yml', '')
             def taskName = profileName.capitalize()
             def profilePath = "BuildProfiles/${profileFile.name}"
 
+            // Создаем задачу профиля, которая запускает multiBuild с установленным профилем
             project.tasks.register(taskName) {
                 group = 'build profiles'
-                description = "Build with profile ${profileFile.name}"
+                description = "Build with profile ${profileFile.name} (Java 8 + Java 25)"
 
-                dependsOn 'build'
-                dependsOn 'reobf'
-
-                doLast {
+                doFirst {
                     project.ext.set('Profile', profilePath)
-                    project.logger.lifecycle(">> Using profile: ${profilePath}")
-
-                    // Запуск JarSplitter с профилем
-                    project.ext.multiJavaForgeRunSplitterWithProfile(java8Jar, profilePath)
+                    project.logger.lifecycle('')
+                    project.logger.lifecycle('========================================')
+                    project.logger.lifecycle("Building with profile: ${profilePath}")
+                    project.logger.lifecycle('========================================')
                 }
+
+                dependsOn 'multiBuild'
             }
 
             project.logger.lifecycle("Registered profile task: ${taskName}")
