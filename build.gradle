@@ -11,7 +11,7 @@ plugins {
     id 'java-gradle-plugin'
 }
 
-group = 'ml.luxinfine.gradle'
+group = 'team.luxinfine.gradle'
 version = '1.0'
 
 repositories {
