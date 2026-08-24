@@ -306,8 +306,8 @@ class MultiJavaForgePlugin implements Plugin<Project> {
                 description = "Build with profile ${profileFile.name} (Java 8 + Java 25)"
 
                 // Устанавливаем профиль в configure, чтобы он был доступен до выполнения зависимостей
-                project.gradle.taskGraph.whenReady {
-                    if (project.gradle.taskGraph.hasTask(it)) {
+                project.gradle.taskGraph.whenReady { taskGraph ->
+                    if (taskGraph.hasTask(":${taskName}")) {
                         project.ext.set('Profile', profilePath)
                         project.logger.lifecycle('')
                         project.logger.lifecycle('========================================')
