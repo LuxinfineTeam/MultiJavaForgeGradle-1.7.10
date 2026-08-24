@@ -9,6 +9,7 @@ buildscript {
 plugins {
     id 'groovy'
     id 'java-gradle-plugin'
+    id 'maven-publish'
 }
 
 group = 'team.luxinfine.gradle'
@@ -34,6 +35,35 @@ gradlePlugin {
         multiJavaForge {
             id = 'ml.luxinfine.gradle.MultiJavaForgePlugin'
             implementationClass = 'ml.luxinfine.gradle.MultiJavaForgePlugin'
+        }
+    }
+}
+
+artifacts {
+    archives(jar)
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from(components["java"])
+
+            groupId = project.group
+            artifactId = "MultiJavaFG"
+            version = project.version
+
+            pom {
+                name.set("MultiJavaFG")
+                description.set("Gradle plugin for multi build forge 1.7.10 mods for java8 and java25")
+
+                developers {
+                    developer {
+                        id.set("LuxinfineTeam")
+                        name.set("LuxinfineTeam")
+                        roles.set(["developer"])
+                    }
+                }
+            }
         }
     }
 }
