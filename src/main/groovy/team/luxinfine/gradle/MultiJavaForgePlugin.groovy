@@ -305,12 +305,15 @@ class MultiJavaForgePlugin implements Plugin<Project> {
                 group = 'build profiles'
                 description = "Build with profile ${profileFile.name} (Java 8 + Java 25)"
 
-                doFirst {
-                    project.ext.set('Profile', profilePath)
-                    project.logger.lifecycle('')
-                    project.logger.lifecycle('========================================')
-                    project.logger.lifecycle("Building with profile: ${profilePath}")
-                    project.logger.lifecycle('========================================')
+                // Устанавливаем профиль в configure, чтобы он был доступен до выполнения зависимостей
+                project.gradle.taskGraph.whenReady {
+                    if (project.gradle.taskGraph.hasTask(it)) {
+                        project.ext.set('Profile', profilePath)
+                        project.logger.lifecycle('')
+                        project.logger.lifecycle('========================================')
+                        project.logger.lifecycle("Building with profile: ${profilePath}")
+                        project.logger.lifecycle('========================================')
+                    }
                 }
 
                 dependsOn 'multiBuild'
