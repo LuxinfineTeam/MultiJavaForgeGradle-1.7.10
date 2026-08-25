@@ -30,6 +30,7 @@ class MultiJavaForgePlugin implements Plugin<Project> {
 
         project.afterEvaluate {
             configureManifest(project, useLocalSplitter)
+            configureExcludes(project, useLocalSplitter)
             configureReobf(project, useLocalSplitter)
             if (useLocalSplitter) {
                 configureSplitterTasks(project)
@@ -99,6 +100,38 @@ class MultiJavaForgePlugin implements Plugin<Project> {
             project.tasks.named('jarJava25', Jar) {
                 manifest {
                     attributes manifestAttributes
+                }
+            }
+        }
+    }
+
+    private static void configureExcludes(Project project, boolean includeJava25) {
+        if (!project.hasProperty('jarExcludes'))
+            return
+
+        def jarExcludes = project.ext.jarExcludes
+
+        if (jarExcludes instanceof List && jarExcludes.isEmpty())
+            return
+
+        project.tasks.named('jar', Jar) {
+            if (jarExcludes instanceof List) {
+                jarExcludes.each { pattern ->
+                    exclude pattern
+                }
+            } else {
+                exclude jarExcludes
+            }
+        }
+
+        if (includeJava25) {
+            project.tasks.named('jarJava25', Jar) {
+                if (jarExcludes instanceof List) {
+                    jarExcludes.each { pattern ->
+                        exclude pattern
+                    }
+                } else {
+                    exclude jarExcludes
                 }
             }
         }
