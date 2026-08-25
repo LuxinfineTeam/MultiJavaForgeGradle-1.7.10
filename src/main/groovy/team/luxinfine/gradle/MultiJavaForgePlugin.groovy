@@ -66,8 +66,8 @@ class MultiJavaForgePlugin implements Plugin<Project> {
                 javaCompiler = project.javaToolchains.compilerFor {
                     languageVersion = JavaLanguageVersion.of(25)
                 }
-                options.sourceCompatibility = '8'
-                options.targetCompatibility = '25'
+                sourceCompatibility = '8'
+                targetCompatibility = '25'
                 options.encoding = 'UTF-8'
 
                 options.compilerArgs.addAll([
