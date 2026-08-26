@@ -49,7 +49,8 @@ class MultiJavaForgePlugin implements Plugin<Project> {
             options.encoding = 'UTF-8'
         }
         project.tasks.named('compileJava', JavaCompile) {
-            options.release = 8
+            sourceCompatibility = '8'
+            targetCompatibility = '8'
         }
     }
 
@@ -66,7 +67,8 @@ class MultiJavaForgePlugin implements Plugin<Project> {
                 javaCompiler = project.javaToolchains.compilerFor {
                     languageVersion = JavaLanguageVersion.of(25)
                 }
-                options.release = 25
+                sourceCompatibility = '8'
+                targetCompatibility = '25'
                 options.encoding = 'UTF-8'
             }
 
