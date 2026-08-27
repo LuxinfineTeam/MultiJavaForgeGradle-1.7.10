@@ -1,9 +1,13 @@
 package team.luxinfine.gradle
 
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
+import java.util.regex.Pattern
 import java.util.stream.Collectors
 
+import groovy.lang.Closure
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.JavaExec
@@ -31,6 +35,7 @@ class MultiJavaForgePlugin implements Plugin<Project> {
         project.afterEvaluate {
             configureManifest(project, useLocalSplitter)
             configureExcludes(project, useLocalSplitter)
+            configureReplacements(project, useLocalSplitter)
             configureReobf(project, useLocalSplitter)
             if (useLocalSplitter) {
                 configureSplitterTasks(project)
@@ -137,6 +142,159 @@ class MultiJavaForgePlugin implements Plugin<Project> {
                 }
             }
         }
+    }
+
+    private static void configureReplacements(Project project, boolean includeJava25) {
+        // Check if replacements are configured via ext
+        if (!project.hasProperty('replace'))
+            return
+
+        def replaceConfig = project.ext.replace
+
+        // Parse replacement configuration
+        def replacements = [:]
+        def includes = []
+
+        if (replaceConfig instanceof Map) {
+            // Format: ext.replace = ['@VERSION@': project.version, '@MC@': '1.7.10']
+            replacements.putAll(replaceConfig)
+        } else if (replaceConfig instanceof List) {
+            // Format: ext.replace = [['@VERSION@', project.version], ['@MC@', '1.7.10']]
+            replaceConfig.each { item ->
+                if (item instanceof List && item.size() >= 2) {
+                    replacements.put(item[0], item[1])
+                } else if (item instanceof Map) {
+                    replacements.putAll(item)
+                }
+            }
+        } else {
+            project.logger.warn("Invalid replace format. Use Map or List of pairs.")
+            return
+        }
+
+        // Get includes from ext.replaceIn if available
+        if (project.hasProperty('replaceIn')) {
+            def replaceIn = project.ext.replaceIn
+            if (replaceIn instanceof String) {
+                includes.add(replaceIn)
+            } else if (replaceIn instanceof List) {
+                includes.addAll(replaceIn)
+            }
+        }
+
+        // If no replacements configured, skip
+        if (replacements.isEmpty()) {
+            return
+        }
+
+        project.logger.lifecycle('=== Configuring source replacements ===')
+        project.logger.lifecycle("Replacements: ${replacements}")
+        project.logger.lifecycle("Includes: ${includes.isEmpty() ? 'all files' : includes}")
+
+        // Resolve replacements (handle closures)
+        def resolvedReplacements = [:]
+        replacements.each { key, value ->
+            if (key == null || value == null) {
+                return
+            }
+
+            def resolvedValue = value
+            while (resolvedValue instanceof Closure) {
+                resolvedValue = resolvedValue.call()
+            }
+
+            resolvedReplacements.put(Pattern.quote(key.toString()), resolvedValue.toString())
+        }
+
+        // Create temporary source directories for processed sources
+        def tempSourceDir8 = project.layout.buildDirectory.dir('sources/java8').get().asFile
+        def tempSourceDir25 = includeJava25 ? project.layout.buildDirectory.dir('sources/java25').get().asFile : null
+
+        // Apply replacements to Java 8 sources before compilation
+        def compileJava8 = project.tasks.named('compileJava', JavaCompile)
+        compileJava8.configure {
+            doFirst {
+                // Copy and process sources to temp directory
+                copyAndProcessSources(project, project.sourceSets.main.java.srcDirs, tempSourceDir8, resolvedReplacements, includes, 'Java 8')
+                // Update source to use processed sources
+                source = project.fileTree(tempSourceDir8)
+            }
+        }
+
+        // Apply replacements to Java 25 sources before compilation if needed
+        if (includeJava25) {
+            def compileJava25 = project.tasks.named('compileJava25', JavaCompile)
+            compileJava25.configure {
+                doFirst {
+                    // Copy and process sources to temp directory
+                    copyAndProcessSources(project, project.sourceSets.main.java.srcDirs, tempSourceDir25, resolvedReplacements, includes, 'Java 25')
+                    // Update source to use processed sources
+                    source = project.fileTree(tempSourceDir25)
+                }
+            }
+        }
+    }
+
+    private static void copyAndProcessSources(Project project, Set<File> srcDirs, File outputDir, Map<String, String> replacements, List<String> includes, String target) {
+        project.logger.lifecycle("Processing sources for ${target}...")
+
+        // Clean output directory
+        if (outputDir.exists()) {
+            project.delete(outputDir)
+        }
+        outputDir.mkdirs()
+
+        srcDirs.each { srcDir ->
+            if (!srcDir.exists() || !srcDir.isDirectory()) {
+                return
+            }
+
+            project.fileTree(srcDir).each { file ->
+                def relativePath = srcDir.toPath().relativize(file.toPath()).toString()
+                def outputFile = new File(outputDir, relativePath)
+
+                // Create parent directories
+                outputFile.parentFile.mkdirs()
+
+                // Check if this is a Java file that should be processed
+                if (file.name.endsWith('.java')) {
+                    // Check if file should be processed
+                    def shouldProcess = includes.isEmpty()
+                    if (!shouldProcess) {
+                        def filePath = file.canonicalPath.replace('\\', '/')
+                        shouldProcess = includes.any { pattern ->
+                            filePath.endsWith(pattern.replace('\\', '/'))
+                        }
+                    }
+
+                    if (shouldProcess) {
+                        // Read, process, and write
+                        def content = file.getText('UTF-8')
+                        def originalContent = content
+
+                        // Apply all replacements
+                        replacements.each { pattern, replacement ->
+                            content = content.replaceAll(pattern, replacement)
+                        }
+
+                        // Write processed content
+                        outputFile.write(content, 'UTF-8')
+
+                        if (content != originalContent) {
+                            project.logger.info("Applied replacements to: ${relativePath}")
+                        }
+                    } else {
+                        // Copy without processing
+                        Files.copy(file.toPath(), outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    }
+                } else {
+                    // Copy non-Java files as-is
+                    Files.copy(file.toPath(), outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+            }
+        }
+
+        project.logger.lifecycle("Processed sources written to: ${outputDir}")
     }
 
     private static boolean checkLocalSplitter(Project project) {

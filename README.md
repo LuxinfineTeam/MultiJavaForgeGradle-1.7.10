@@ -10,6 +10,7 @@ Gradle плагин для сборки Forge 1.7.10 модов от LuxinfineTe
   - **Приватный JarSplitter** (платный) - полная поддержка j8 и j25 билдов
   - **Публичный плагин** (бесплатный) - автоматическое подключение через JitPack, только j8
 - Единая команда сборки `multiBuild`
+- **Поддержка `replace`** - подстановка шаблонов в исходном коде (версия, мод ID и т.д.)
 
 ## Gradle таски
 
@@ -78,6 +79,40 @@ build/libs/
 - **Java 25**: `options.release = 25`, `encoding = 'UTF-8'`, через Java Toolchain
 
 Убедитесь, что у вас установлена JDK 25 для сборки Java 25 версии.
+
+## Подстановка шаблонов (Replace)
+
+Плагин поддерживает параметр `replace` для подстановки значений в исходный код перед компиляцией (аналогично ForgeGradle-1_2).
+
+### Базовое использование
+
+```groovy
+ext.replace = [
+    '@VERSION@': project.version,
+    '@MC_VERSION@': '1.7.10'
+]
+
+// Указать конкретные файлы (опционально)
+ext.replaceIn = ['com/yourmod/YourMod.java']
+```
+
+### Пример
+
+**Исходный код:**
+```java
+@Mod(modid = "yourmod", version = "@VERSION@", acceptedMinecraftVersions = "@MC_VERSION@")
+public class YourMod {
+    public static final String VERSION = "@VERSION@";
+}
+```
+
+**После сборки:**
+```java
+@Mod(modid = "yourmod", version = "1.0.0", acceptedMinecraftVersions = "1.7.10")
+public class YourMod {
+    public static final String VERSION = "1.0.0";
+}
+```
 
 ## Зависимости
 
